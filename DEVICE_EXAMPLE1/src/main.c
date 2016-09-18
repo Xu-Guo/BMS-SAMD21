@@ -1,7 +1,7 @@
 ﻿/*
  * Support and FAQ: visit <a href="http://www.atmel.com/design-support/">Atmel Support</a>
  */
-
+#include <stdlib.h>
 #include <asf.h>
 #include "conf_usb.h"
 #include "ui.h"
@@ -83,7 +83,7 @@ float adc_discharge_signal_voltage;
 uint16_t raw_result;
 
 //1 for changer presents,0 for charger not presents
-bool charger_status = 0;
+uint8_t charger_status = 0;
 
 //1 for charging, 2 for discharging, 0 for no current in/out.
 uint8_t battery_status = 0;
@@ -98,6 +98,8 @@ uint64_t total_discharge_current = 0;
 
 uint32_t charge_sample_num = 0;
 uint32_t discharge_sample_num = 0;
+
+uint8_t dateReportFlag = 0;
 
 static volatile uint32_t event_count = 0;
 
@@ -147,7 +149,7 @@ void send_board_time_data(void);
 void updateParameter(void);
 void updateTime(void);
 
-void get_avg_current(void);
+static void get_avg_current(void);
 
 //functions for pwm
 static void configure_tcc(void);
@@ -161,15 +163,17 @@ struct tcc_module tcc_instance;
 //! [callback_funcs]
 static void tcc_callback_to_change_duty_cycle(struct tcc_module *const module_inst)
 {
-	static uint32_t delay = 10;
+	static uint32_t delay = 20;
 	static uint32_t i = 0;
 
 	if (--delay) {
 		return;
 	}
-	delay = 50;
+	delay = 20;
 	i = (i + 0x0800) & 0xFFFF;
 	tcc_set_compare_value(module_inst,(enum tcc_match_capture_channel)(TCC_MATCH_CAPTURE_CHANNEL_0 + CONF_PWM_CHANNEL),i + 1);
+	//try modify the duty_cycle to get adc reading*****
+	//tcc_set_compare_value(module_inst,(enum tcc_match_capture_channel)(TCC_MATCH_CAPTURE_CHANNEL_0 + CONF_PWM_CHANNEL),0xffff);
 }
 //! [callback_funcs]
 
@@ -281,7 +285,7 @@ void rtc_match_callback(void)
 	//! [alarm_mask]
 
 	//! [set_alarm]
-	alarm.time.second += 10;
+	alarm.time.second += 3;
 	alarm.time.second = alarm.time.second % 60;
 
 	rtc_calendar_set_alarm(&rtc_instance, &alarm, RTC_CALENDAR_ALARM_0);
@@ -463,7 +467,7 @@ void adc_sample_voltage_mapping(void)
     uint8_t string1 = 0xdd;
 
 	//************************************************************************
-	if (!charger_status)//charger not connected
+	if (0 == charger_status)//charger not connected
 	{	charge_signal_adc_result = 0;
 		//**********************************for discharge signal*******************************
 		adc_set_positive_input(&adc_instance,ADC_POSITIVE_INPUT_PIN9);
@@ -472,10 +476,10 @@ void adc_sample_voltage_mapping(void)
 		// Wait for conversion to be done and read out result
 		} while (adc_read(&adc_instance, &discharge_signal_adc_result) == STATUS_BUSY);	
 		
-		if (discharge_signal_adc_result < 160)
-		{
-			discharge_signal_adc_result = 0;
-		}
+		//if (discharge_signal_adc_result < 160)
+		//{
+			//discharge_signal_adc_result = 0;
+		//}
 		total_discharge_current += discharge_signal_adc_result;
 		discharge_sample_num ++;
 		//udi_cdc_write_buf(&string1,1);				
@@ -495,11 +499,11 @@ void adc_sample_voltage_mapping(void)
 			// Wait for conversion to be done and read out result 
 		} while (adc_read(&adc_instance, &charge_signal_adc_result) == STATUS_BUSY);
 		
-		if (charge_signal_adc_result < 160)
-		{
-			charge_signal_adc_result = 0;
-		}
-		
+		//if (charge_signal_adc_result < 160)
+		//{
+			//charge_signal_adc_result = 0;
+		//}
+		//
 		//udi_cdc_write_buf(&string,1);
 		//udi_cdc_write_buf(&charge_signal_adc_result,2);
 		total_charge_current += charge_signal_adc_result;
@@ -516,6 +520,10 @@ void adc_sample_voltage_mapping(void)
 
 void send_battery_data(void)
 {	
+	if (dateReportFlag == 0)
+	{
+		return;
+	}
 	struct rtc_calendar_time current_time;
 	rtc_calendar_get_time(&rtc_instance, &current_time);
 	battery_data[0] = (uint8_t)((avg_charge_current >> 8) & 0xff);
@@ -548,6 +556,8 @@ void send_battery_data(void)
 	}
 	tx_data[18] = END_FLAG;
 	udi_cdc_write_buf(tx_data,19);
+	
+	dateReportFlag = 0;
 }
 
 void send_board_time_data(void)
@@ -651,19 +661,39 @@ void execute_system_command()
 	system_busy_flag = 0;
 }
 
-void get_avg_current()
+static void get_avg_current()
 {
+	static uint16_t avg_charge_current_old = 0;
+	static uint16_t avg_discharge_current_old = 0;
+	int16_t diff = 0;
+	
 	if (charge_sample_num >0)
 	{
 		avg_charge_current = (uint16_t)(total_charge_current / charge_sample_num);
 		total_charge_current = 0;
 		charge_sample_num = 0;
+		diff = (int16_t)(avg_charge_current - avg_charge_current_old);
+		if (diff > 20 || diff < -20)//20 adc reading unit = 0.005v
+		{
+			dateReportFlag = 1;
+			avg_charge_current_old = avg_charge_current;
+		}else{
+			dateReportFlag = 0;
+		}
 	}
 	if (discharge_sample_num > 0)
 	{	
 		avg_discharge_current = (uint16_t)(total_discharge_current / discharge_sample_num);
 		total_discharge_current = 0;
 		discharge_sample_num = 0;
+		diff = (int16_t)(avg_discharge_current - avg_discharge_current_old);
+		if (diff > 20 || diff < -20)//20 adc reading unit = 0.005v
+		{
+			dateReportFlag = 1;
+			avg_discharge_current_old = avg_discharge_current;
+		}else{
+			dateReportFlag = 0;
+		}
 	}
 	
 }
