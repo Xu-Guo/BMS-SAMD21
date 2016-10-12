@@ -88,7 +88,7 @@ void adc_get_config_defaults(struct adc_config *const config)
 	config->clock_source                  = GCLK_GENERATOR_0;
 	config->reference                     = ADC_REFERENCE_INT1V;
 	config->clock_prescaler               = ADC_CLOCK_PRESCALER_DIV4;
-	config->resolution                    = ADC_RESOLUTION_12BIT;
+	config->resolution                    = ADC_RESOLUTION_CUSTOM;
 	config->window.window_mode            = ADC_WINDOW_MODE_DISABLE;
 	config->window.window_upper_value     = 0;
 	config->window.window_lower_value     = 0;
@@ -99,8 +99,8 @@ void adc_get_config_defaults(struct adc_config *const config)
  	config->positive_input                = ADC_POSITIVE_INPUT_PIN8 ;
 #endif
 	config->negative_input                = ADC_NEGATIVE_INPUT_GND ;
-	config->accumulate_samples            = ADC_ACCUMULATE_DISABLE;
-	config->divide_result                 = ADC_DIVIDE_RESULT_DISABLE;
+	config->accumulate_samples            = ADC_ACCUMULATE_SAMPLES_1024;
+	config->divide_result                 = ADC_DIVIDE_RESULT_16;
 	config->left_adjust                   = false;
 	config->differential_mode             = false;
 	config->freerunning                   = false;

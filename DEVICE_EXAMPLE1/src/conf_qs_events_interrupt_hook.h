@@ -48,7 +48,7 @@
 #define CONF_EXAMPLE_H_INCLUDED
 
 //[definition_event]
-#define CONF_EVENT_GENERATOR    EVSYS_ID_GEN_RTC_PER_3
+#define CONF_EVENT_GENERATOR    EVSYS_ID_GEN_RTC_PER_4
 #define CONF_EVENT_USER         EVSYS_ID_USER_DMAC_CH_0
 //[definition_event]
 
