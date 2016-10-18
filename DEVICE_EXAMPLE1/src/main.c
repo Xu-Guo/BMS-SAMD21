@@ -28,6 +28,7 @@
 #define  ADC_REFERENCE_INT1V_VALUE    0X01
 #define  ADC_8BIT_FULL_SCALE_VALUE    0XFF
 
+//TX_DATA_TYPE
 #define TX_TYPE_BATTERY_DATA		  0x10
 #define TX_TYPE_TIME_DATA		      0x11
 
@@ -37,8 +38,8 @@
 
 
 /*
-|START_FLAG|TX_DATA_TYPE|DATA_LENGTH|CHARGE_CURRENT|DISCHARGE_CURRENT|TEMPERATURE_DATA|BATTERY_STATUS|CHARGER_STATUS|YEAR   |MONTH  |DAY    |HOUR   |MIN   |SEC   |END_FLAG|
-|1 BYTE    |1 BYTE      |1 BYTE     |2 BYTES       |2 BYTES          |2 BYTES         |1 BYTE        |1 BYTE        |2 BYTES|1 BYTE |1 BYTE |1 BYTE |1 BYTE|1 BYTE|1 BYTE  |
+|START_FLAG|TX_DATA_TYPE|DATA_LENGTH|CHARGE_CURRENT|DISCHARGE_CURRENT|TEMPERATURE_DATA|soc percentage|BATTERY_STATUS|CHARGER_STATUS|YEAR   |MONTH  |DAY    |HOUR   |MIN   |SEC   |END_FLAG|
+|1 BYTE    |1 BYTE      |1 BYTE     |2 BYTES       |2 BYTES          |2 BYTES         |1 BYTE        |1 BYTE        |1 BYTE        |2 BYTES|1 BYTE |1 BYTE |1 BYTE |1 BYTE|1 BYTE|1 BYTE  |
 */
 #define BATTERY_DATA_LENGTH   16
 #define TIME_DATA_LENGTH       7
@@ -106,7 +107,7 @@ uint32_t discharge_sample_num = 0;
 uint32_t battery_capcity = 540000; //listed total battery capacity in unit of mAsec
 uint32_t calibrated_battery_capacity = 540000;
 
-uint8_t charge_remain_percentage = 0;    // ?% of total capacity x 100;
+int8_t charge_remain_percentage = 0;    // ?% of total capacity x 100;
 
 uint8_t charge_from_empty_flag = 0;
 uint8_t	discharge_from_full_flag = 0;
@@ -153,10 +154,14 @@ uint16_t adc_start_read_temp(void);
 
 uint8_t battery_status_update(void);
 
+//smart battery issues commands
 void send_battery_data(void);
 void send_board_time_data(void);
-void updateParameter(void);
-void updateTime(void);
+
+
+//local host issues commands
+void setParameter(void);
+void setTime(void);
 
 void battery_charge_calculation(uint8_t time);
 
@@ -318,7 +323,7 @@ void rtc_match_callback(void)
 	alarm.time.second = alarm.time.second % 60;
 	
 	//forced data reporting every 10 seconds
-	if ((alarm.time.second % 10) == 0)
+	if ((alarm.time.second % 50) == 0)
 	{
 		dateReportFlag = 1;
 	}
@@ -581,12 +586,12 @@ void send_board_time_data(void)
 	udi_cdc_write_buf(tx_data,11);
 }
 
-void updateParameter(void)
+void setParameter(void)
 {
 	//to be done..
 }
 
-void updateTime(void)
+void setTime(void)
 {
 	struct rtc_calendar_time time;
 	rtc_calendar_get_time_defaults(&time);
@@ -604,7 +609,7 @@ funcPtQuery requestAction[] = {&send_battery_data , &send_board_time_data};
 const int requestActionNum = sizeof(requestAction)/sizeof(requestAction[0]);
 
 typedef void (*funcPtUpdate)(void);
-funcPtUpdate setAction[] = {&updateParameter , &updateTime};
+funcPtUpdate setAction[] = {&setParameter , &setTime};
 const int setActionNum = sizeof(setAction)/sizeof(setAction[0]);
 
 
@@ -678,7 +683,7 @@ void battery_charge_calculation(uint8_t time)
 			dateReportFlag = 1;
 			avg_charge_current_reading_old = avg_charge_current_reading;
 		}
-		delta_charge += avg_charge_current_reading * 1000 * 10 / 4095 / 13 * time;
+		delta_charge += avg_charge_current_reading * 1000 * 10 / 4095 / 75 * time;
 	}
 	
 	if (discharge_sample_num > 0)
@@ -821,9 +826,9 @@ int main(void)
 	rtc_calendar_get_time_defaults(&time);
 	time.year = 2016;
 	time.month = 10;
-	time.day = 9;
+	time.day = 15;
 	time.hour = 15;
-	time.minute = 13;
+	time.minute = 36;
 	time.second = 59;
 	rtc_calendar_set_time(&rtc_instance, &time);
 	

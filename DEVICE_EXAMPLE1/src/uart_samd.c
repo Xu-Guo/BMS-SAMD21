@@ -135,21 +135,33 @@ void uart_rx_notify(uint8_t port)
 	UNUSED(port);
 	/* Transmit first data */
 	ui_com_rx_start();
+	uint8_t String[] = "aa";
 	uint8_t usb_read_buf[200];
+	//udi_cdc_write_buf(String, sizeof(String));	
+	
 	//usart_enable_callback(&usart_module_edbg, USART_CALLBACK_BUFFER_TRANSMITTED);
 	uint8_t usb_data_length = udi_cdc_get_nb_received_data();
+	uint8_t buff[usb_data_length];
+	//usart_write_buffer_job(&usart_module_edbg, &buff, usb_data_length);
+	//udi_cdc_read_buf(buff, usb_data_length);
+	//udi_cdc_write_buf(buff, usb_data_length);
 	if(usb_data_length > 200){
-		uint8_t buff[usb_data_length];
+		
 		uint8_t String[] = "Invalid data length!";
-		udi_cdc_read_buf(buff, usb_data_length);
+		//udi_cdc_read_buf(buff, usb_data_length);
+		//udi_cdc_write_buf(buff, usb_data_length);
+		//print to debug uart port
+		//usart_write_buffer_job(&usart_module_edbg, &buff, usb_data_length);
 		udi_cdc_write_buf(String, sizeof(String));	
 		return;
 	}else{	
 		//udi_cdc_multi_getc(cdc_read_buf,20);
 		//tx_data = udi_cdc_getc();
 		udi_cdc_read_buf(usb_read_buf, usb_data_length);
+		udi_cdc_write_buf(usb_read_buf, usb_data_length);
 		
-		//check is data correct.
+		
+		//check if data is correct.
 		if (usb_read_buf[0] == START_FLAG && usb_read_buf[usb_data_length-1] == END_FLAG)
 		{
 			for (uint8_t i = 0; i < usb_read_buf[1];i++)

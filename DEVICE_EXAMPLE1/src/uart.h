@@ -50,8 +50,8 @@
 #define START_FLAG     0x68
 #define END_FLAG       0x88
 
-#define CMD_TYPE_REQUEST    1
-#define CMD_TYPE_SET   2
+#define CMD_TYPE_REQUEST    0x01
+#define CMD_TYPE_SET        0x10
 
 extern uint8_t commandMsg[20];
 extern uint8_t msg_length;
